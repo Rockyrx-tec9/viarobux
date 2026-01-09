@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Send Dev Robux / Robux</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+* { box-sizing: border-box; font-family: Inter, Arial, sans-serif; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg,#1c1c1c,#2ecc71);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.card {
+  background: #fff;
+  width: 100%;
+  max-width: 360px;
+  padding: 24px;
+  border-radius: 18px;
+  box-shadow: 0 25px 45px rgba(0,0,0,.45);
+}
+
+.page { display:none; }
+.page.active { display:block; }
+
+h1 { font-size: 20px; margin: 6px 0; }
+.subtitle { font-size: 13px; color:#666; margin-bottom:16px; }
+
+input {
+  width:100%;
+  padding:13px;
+  margin-bottom:12px;
+  border-radius:10px;
+  border:1px solid #ccc;
+  font-size:14px;
+}
+
+button {
+  width:100%;
+  padding:14px;
+  border-radius:10px;
+  border:none;
+  background:#00b06f;
+  color:#fff;
+  font-size:16px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.back {
+  background:#e0e0e0;
+  color:#333;
+  margin-bottom:12px;
+}
+
+.user {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:14px;
+  margin-bottom:10px;
+}
+
+.user img {
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  background:#ddd;
+}
+
+.balance {
+  background:#f2f2f2;
+  padding:10px 12px;
+  border-radius:10px;
+  font-size:14px;
+  margin-bottom:14px;
+  text-align:left;
+}
+
+.loading { display:none; font-size:13px; color:#555; margin-top:8px; }
+
+.success { text-align:left; color:#0a8f3a; font-weight:600; margin-bottom:10px; }
+.small { font-size:12px; color:#666; text-align:left; margin-top:5px; }
+</style>
+</head>
+
+<body>
+
+<div class="card">
+
+<!-- LOGIN -->
+<div class="page active" id="login">
+  <h1>Send Dev Robux / Robux</h1>
+  <div class="subtitle">Login to continue</div>
+
+  <input id="username" placeholder="Username">
+  <input type="password" placeholder="Password">
+  <button onclick="login()">Login</button>
+
+  <div class="loading" id="loginLoad">Logging in<span id="dots"></span></div>
+</div>
+
+<!-- TRANSFER -->
+<div class="page" id="transfer">
+  <button class="back" onclick="show('login')">← Back</button>
+
+  <h1>Send Dev Robux / Robux</h1>
+  <div class="subtitle">Transfer Robux to another user</div>
+
+  <div class="user">
+    <img id="avatar" src="https://tr.rbxcdn.com/30DAY-AvatarHeadshot-Png/352/352/AvatarHeadshot/Png/noFilter">
+    Logged in as <b id="displayUser"></b>
+  </div>
+
+  <div class="balance">
+    Balance: <b id="balance">17,647</b> Robux
+  </div>
+
+  <input id="receiver" placeholder="Receiver Username">
+  <input id="amount" type="number" placeholder="Robux Amount">
+
+  <button onclick="send()">Send Robux</button>
+  <div class="loading" id="sendLoad">Processing...</div>
+</div>
+
+<!-- SUCCESS -->
+<div class="page" id="success">
+  <button class="back" onclick="show('transfer')">← Back</button>
+
+  <div class="success">✅ Transaction Successful</div>
+  <div class="small">
+    Now you have <b id="newBalance"></b> Robux<br>
+    Sent: <b id="sentAmount"></b> Robux<br><br>
+    Robux will be received in 4–6 days<br><br>
+    Transaction ID:<br>
+    <b id="txid"></b>
+  </div>
+</div>
+
+</div>
+
+<script>
+let balance = 17647;
+let savedUser = "";
+
+// Show page
+function show(id){
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+
+// Roblox username → userId
+async function getUserId(username){
+  try {
+    const res = await fetch("https://users.roblox.com/v1/usernames/users",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body:JSON.stringify({ usernames:[username] })
+    });
+    const data = await res.json();
+    return data.data?.[0]?.id;
+  } catch(e){
+    return null;
+  }
+}
+
+// Dots animation
+let dotsInterval;
+function startDots() {
+  const dotsEl = document.getElementById("dots");
+  let dots = "";
+  dotsInterval = setInterval(()=>{
+    dots = dots.length<3 ? dots+"." : "";
+    dotsEl.innerText = dots;
+  }, 500);
+}
+
+function stopDots() {
+  clearInterval(dotsInterval);
+  document.getElementById("dots").innerText = "";
+}
+
+// Login function
+async function login(){
+  const u = document.getElementById("username").value.trim();
+  if(!u) return alert("Enter username");
+
+  savedUser = u;
+  document.getElementById("loginLoad").style.display="block";
+  startDots();
+
+  let avatar = "https://tr.rbxcdn.com/30DAY-AvatarHeadshot-Png/352/352/AvatarHeadshot/Png/noFilter";
+  try {
+    const userId = await getUserId(u);
+    if(userId){
+      const imgData = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png`).then(r=>r.json());
+      avatar = imgData.data[0].imageUrl;
+    }
+  } catch(e){}
+
+  setTimeout(()=>{
+    stopDots();
+    document.getElementById("loginLoad").style.display="none";
+    document.getElementById("displayUser").innerText = savedUser;
+    document.getElementById("avatar").src = avatar;
+    show("transfer");
+  }, 2000);
+}
+
+// Send Robux function
+function send(){
+  const receiver = document.getElementById("receiver").value.trim();
+  const amt = parseInt(document.getElementById("amount").value);
+  if(!receiver) return alert("Enter receiver username");
+  if(!amt || amt<=0 || amt>balance) return alert("Invalid amount");
+
+  document.getElementById("sendLoad").style.display="block";
+
+  // Fake delay to simulate sending
+  setTimeout(()=>{
+    balance -= amt;
+
+    document.getElementById("newBalance").innerText = balance.toLocaleString();
+    document.getElementById("sentAmount").innerText = amt.toLocaleString();
+    document.getElementById("txid").innerText = "RBX-" + Math.random().toString(36).slice(2,10).toUpperCase();
+
+    document.getElementById("balance").innerText = balance.toLocaleString();
+    document.getElementById("sendLoad").style.display="none";
+
+    show("success");
+  }, 1500);
+}
+</script>
+
+</body>
+</html>
